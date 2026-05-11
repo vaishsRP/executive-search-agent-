@@ -35,7 +35,7 @@ then open `.env` and paste your key in. then:
 streamlit run app.py
 ```
 
-opens at http://localhost:8501.
+when you run it locally, it opens at http://localhost:8501 on your own machine and uses the key in your local `.env`. the live demo link above is the hosted version on streamlit cloud.
 
 ## limitations
 

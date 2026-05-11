@@ -151,7 +151,7 @@ def analyse_candidate(jd_text, cv_text, candidate_label):
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
         return {
-            "error": "GROQ_API_KEY not set. copy .env.example to .env and add your key.",
+            "error": "GROQ_API_KEY not set. locally: copy .env.example to .env and add your key. on streamlit cloud: add GROQ_API_KEY in Settings > Secrets.",
             "raw": "",
             "candidate_label": candidate_label,
         }

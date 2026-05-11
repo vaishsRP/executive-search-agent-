@@ -1,9 +1,19 @@
 import io
 import json
+import os
 from html import escape
 
 import pandas as pd
 import streamlit as st
+
+# on streamlit cloud the api key lives in the Secrets panel (st.secrets),
+# locally it's in .env. promote st.secrets to an env var so the analyser
+# (which reads os.getenv) works in both places.
+try:
+    if "GROQ_API_KEY" in st.secrets:
+        os.environ.setdefault("GROQ_API_KEY", str(st.secrets["GROQ_API_KEY"]))
+except Exception:
+    pass
 
 from src import analyser, parser, scorer
 
