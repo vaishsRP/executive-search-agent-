@@ -1,37 +1,15 @@
-"""Executive Search Agent — Streamlit UI.
-
-Run with::
-
-    streamlit run app.py
-
-Two modes are exposed:
-
-* Single Candidate Analysis — paste a JD and one CV, get a structured
-  breakdown with scores, gaps and ready-to-ask interview questions.
-* Shortlist Generator — compare up to three candidates against the same JD,
-  with a ranked summary table, an insight panel, and per-candidate
-  expandable detail.
-"""
-
-from __future__ import annotations
-
 import io
 import json
 from html import escape
-from typing import Any
 
 import pandas as pd
 import streamlit as st
 
 from src import analyser, parser, scorer
 
-# ---------------------------------------------------------------------------
-# Page configuration & global CSS
-# ---------------------------------------------------------------------------
 
 st.set_page_config(
     page_title="Executive Search Agent",
-    page_icon="🧭",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -95,10 +73,6 @@ CUSTOM_CSS = """
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 
-# ---------------------------------------------------------------------------
-# Small UI helpers
-# ---------------------------------------------------------------------------
-
 RECOMMENDATION_BADGE = {
     "Strong Yes": "esa-badge-green",
     "Yes": "esa-badge-blue",
@@ -107,8 +81,7 @@ RECOMMENDATION_BADGE = {
 }
 
 
-def render_pills(items: list[str], css_class: str) -> str:
-    """Render a list of strings as coloured pill HTML."""
+def render_pills(items, css_class):
     if not items:
         return "<span class='esa-pill esa-pill-grey'>None listed</span>"
     return "".join(
@@ -118,21 +91,13 @@ def render_pills(items: list[str], css_class: str) -> str:
     )
 
 
-def render_recommendation_badge(recommendation: str) -> str:
-    """Return an HTML badge for the recommendation, falling back to grey."""
+def render_recommendation_badge(recommendation):
     css = RECOMMENDATION_BADGE.get(recommendation, "esa-pill-grey")
-    return (
-        f"<span class='esa-badge {css}'>{escape(recommendation or 'Unknown')}</span>"
-    )
+    return f"<span class='esa-badge {css}'>{escape(recommendation or 'Unknown')}</span>"
 
 
-def copy_to_clipboard_button(label: str, payload: str, button_key: str) -> None:
-    """Render a button that copies ``payload`` to the clipboard via JS.
-
-    The implementation uses ``st.components.v1.html`` so we can run a tiny
-    inline script. We embed the payload as a JSON string to ensure quoting
-    and newlines round-trip correctly.
-    """
+def copy_to_clipboard_button(label, payload, button_key):
+    # json-encode so quotes and newlines round-trip into the inline js safely
     payload_json = json.dumps(payload)
     html = f"""
     <div>
@@ -158,9 +123,8 @@ def copy_to_clipboard_button(label: str, payload: str, button_key: str) -> None:
     st.components.v1.html(html, height=70)
 
 
-def build_full_summary_text(result: dict) -> str:
-    """Produce a plain-text version of an analysis dict for copy-paste."""
-    lines: list[str] = []
+def build_full_summary_text(result):
+    lines = []
     lines.append(f"Candidate: {result.get('candidate_label', '')}")
     lines.append(f"Role: {result.get('role_title', '')}")
     lines.append(f"Seniority: {result.get('seniority_level', '')}")
@@ -176,9 +140,7 @@ def build_full_summary_text(result: dict) -> str:
         ("growth_potential", "Growth Potential"),
     ):
         block = scores.get(dim, {}) or {}
-        lines.append(
-            f"  - {label}: {block.get('score', 0)}/10 — {block.get('reasoning', '')}"
-        )
+        lines.append(f"  - {label}: {block.get('score', 0)}/10 - {block.get('reasoning', '')}")
     lines.append("")
     lines.append("Required Skills: " + ", ".join(result.get("required_skills", [])))
     lines.append("Nice-to-Have:   " + ", ".join(result.get("nice_to_have_skills", [])))
@@ -204,32 +166,21 @@ def build_full_summary_text(result: dict) -> str:
     return "\n".join(lines)
 
 
-def render_error_block(result: dict, context_label: str = "") -> None:
-    """Render a friendly error block for a failed analysis dict."""
+def render_error_block(result, context_label=""):
     where = f" for {context_label}" if context_label else ""
-    st.error(f"Analysis failed{where}: {result.get('error', 'unknown error')}")
+    st.error(f"analysis failed{where}: {result.get('error', 'unknown error')}")
     raw = result.get("raw") or ""
     if raw:
-        with st.expander("Show raw model response"):
+        with st.expander("show raw model response"):
             st.code(raw, language="json")
 
 
-# ---------------------------------------------------------------------------
-# Rendering the full result panel (shared by Mode 1 and Mode 2 expanders)
-# ---------------------------------------------------------------------------
-
-def render_analysis(result: dict, *, key_prefix: str) -> None:
-    """Render the full candidate analysis layout.
-
-    ``key_prefix`` namespaces any interactive widgets (copy buttons) so the
-    same renderer can run multiple times on the shortlist page without
-    Streamlit key collisions.
-    """
+def render_analysis(result, *, key_prefix):
     if "error" in result:
         render_error_block(result, result.get("candidate_label", ""))
         return
 
-    # --- Row 1: role / seniority / overall match / recommendation ---------
+    # row 1: role, seniority, overall, recommendation
     row1 = st.columns([3, 1.2, 1.2, 1.6])
     with row1[0]:
         st.markdown(
@@ -255,7 +206,7 @@ def render_analysis(result: dict, *, key_prefix: str) -> None:
 
     st.markdown("---")
 
-    # --- Row 2: 2x2 score cards ------------------------------------------
+    # row 2: 2x2 score cards
     st.markdown("<div class='esa-section-title'>Assessment Dimensions</div>", unsafe_allow_html=True)
     scores = result.get("scores", {}) or {}
     score_meta = [
@@ -280,7 +231,7 @@ def render_analysis(result: dict, *, key_prefix: str) -> None:
                     unsafe_allow_html=True,
                 )
 
-    # --- Row 3: skills / nice-to-have / red flags ------------------------
+    # row 3: skills, nice-to-have, red flags
     st.markdown("<div class='esa-section-title'>Skill Mapping</div>", unsafe_allow_html=True)
     sk_cols = st.columns(3)
     with sk_cols[0]:
@@ -296,27 +247,27 @@ def render_analysis(result: dict, *, key_prefix: str) -> None:
         st.markdown(render_pills(result.get("red_flags", []), "esa-pill-red"),
                     unsafe_allow_html=True)
 
-    # --- Row 4: strengths / gaps / spacer --------------------------------
+    # row 4: strengths, gaps, spacer
     st.markdown("<div class='esa-section-title'>Strengths and Gaps</div>", unsafe_allow_html=True)
     sg_cols = st.columns(3)
     with sg_cols[0]:
         st.markdown("**Top 3 Strengths**")
         items = "".join(f"<li>{escape(s)}</li>" for s in result.get("top_3_strengths", []) if s)
         st.markdown(
-            f"<ul class='esa-bullet-list esa-strengths'>{items or '<li>—</li>'}</ul>",
+            f"<ul class='esa-bullet-list esa-strengths'>{items or '<li>-</li>'}</ul>",
             unsafe_allow_html=True,
         )
     with sg_cols[1]:
         st.markdown("**Top 3 Gaps**")
         items = "".join(f"<li>{escape(g)}</li>" for g in result.get("top_3_gaps", []) if g)
         st.markdown(
-            f"<ul class='esa-bullet-list esa-gaps'>{items or '<li>—</li>'}</ul>",
+            f"<ul class='esa-bullet-list esa-gaps'>{items or '<li>-</li>'}</ul>",
             unsafe_allow_html=True,
         )
     with sg_cols[2]:
         st.markdown("&nbsp;", unsafe_allow_html=True)
 
-    # --- Row 5: missing information / interview questions ----------------
+    # row 5: missing info, interview questions
     st.markdown(
         "<div class='esa-section-title'>Interview Questions to Fill Gaps</div>",
         unsafe_allow_html=True,
@@ -324,7 +275,7 @@ def render_analysis(result: dict, *, key_prefix: str) -> None:
     missing = result.get("missing_information") or []
     if not missing:
         st.markdown(
-            "<div class='esa-gap-box'>No critical gaps flagged — proceed to standard "
+            "<div class='esa-gap-box'>No critical gaps flagged. Proceed to standard "
             "interview structure.</div>",
             unsafe_allow_html=True,
         )
@@ -346,27 +297,18 @@ def render_analysis(result: dict, *, key_prefix: str) -> None:
             unsafe_allow_html=True,
         )
 
-    # --- Row 6: copy buttons ---------------------------------------------
+    # row 6: copy buttons
     st.markdown("<div class='esa-section-title'>Quick Actions</div>", unsafe_allow_html=True)
     full_summary = build_full_summary_text(result)
     internal_notes = result.get("internal_notes_bullets", "") or full_summary
     btn_cols = st.columns(2)
     with btn_cols[0]:
-        copy_to_clipboard_button(
-            "Copy Full Summary", full_summary, f"{key_prefix}_copy_full"
-        )
+        copy_to_clipboard_button("Copy Full Summary", full_summary, f"{key_prefix}_copy_full")
     with btn_cols[1]:
-        copy_to_clipboard_button(
-            "Copy Internal Notes", internal_notes, f"{key_prefix}_copy_notes"
-        )
+        copy_to_clipboard_button("Copy Internal Notes", internal_notes, f"{key_prefix}_copy_notes")
 
 
-# ---------------------------------------------------------------------------
-# CV input widget shared by both modes
-# ---------------------------------------------------------------------------
-
-def cv_input_widget(prefix: str, *, height: int = 300) -> str:
-    """Render a CV input widget with PDF/text toggle, return extracted text."""
+def cv_input_widget(prefix, *, height=300):
     method = st.radio(
         "CV input method",
         ["Upload PDF", "Paste Text"],
@@ -374,9 +316,7 @@ def cv_input_widget(prefix: str, *, height: int = 300) -> str:
         horizontal=True,
     )
     if method == "Upload PDF":
-        uploaded = st.file_uploader(
-            "Upload CV (PDF)", type=["pdf"], key=f"{prefix}_pdf"
-        )
+        uploaded = st.file_uploader("Upload CV (PDF)", type=["pdf"], key=f"{prefix}_pdf")
         if uploaded is not None:
             text = parser.extract_text_from_pdf(uploaded)
             if text:
@@ -387,17 +327,12 @@ def cv_input_widget(prefix: str, *, height: int = 300) -> str:
         "Paste CV text",
         height=height,
         key=f"{prefix}_text",
-        placeholder="Paste the candidate's CV here…",
+        placeholder="Paste the candidate's CV here...",
     )
     return parser.clean_text(pasted or "")
 
 
-# ---------------------------------------------------------------------------
-# Mode 1 — Single Candidate Analysis
-# ---------------------------------------------------------------------------
-
-def run_single_mode() -> None:
-    """Render the single-candidate analysis screen."""
+def run_single_mode():
     left, right = st.columns([2, 3], gap="large")
 
     with left:
@@ -406,7 +341,7 @@ def run_single_mode() -> None:
             "Job Description",
             height=300,
             key="single_jd",
-            placeholder="Paste the job description here…",
+            placeholder="Paste the job description here...",
         )
         st.markdown("**Candidate CV**")
         cv_text = cv_input_widget("single_cv")
@@ -427,7 +362,6 @@ def run_single_mode() -> None:
             )
             return
 
-        # Input validation feedback in the right column.
         if not jd_text.strip():
             st.error("Please provide a job description.")
             return
@@ -438,7 +372,7 @@ def run_single_mode() -> None:
             st.error("Please provide a candidate name or label.")
             return
 
-        with st.spinner("Analysing candidate against the JD…"):
+        with st.spinner("Analysing candidate against the JD..."):
             result = analyser.analyse_candidate(
                 jd_text=jd_text,
                 cv_text=cv_text,
@@ -448,12 +382,7 @@ def run_single_mode() -> None:
         render_analysis(result, key_prefix="single")
 
 
-# ---------------------------------------------------------------------------
-# Mode 2 — Shortlist Generator
-# ---------------------------------------------------------------------------
-
-def _shortlist_dataframe(ranked: list[dict]) -> pd.DataFrame:
-    """Build the ranking summary DataFrame for the shortlist view."""
+def _shortlist_dataframe(ranked):
     rows = []
     for item in ranked:
         if "error" in item:
@@ -483,20 +412,19 @@ def _shortlist_dataframe(ranked: list[dict]) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def run_shortlist_mode() -> None:
-    """Render the up-to-three-candidate shortlist screen."""
+def run_shortlist_mode():
     st.markdown("### Job Description (shared across candidates)")
     jd_text = st.text_area(
         "Job Description",
         height=220,
         key="shortlist_jd",
-        placeholder="Paste the job description here…",
+        placeholder="Paste the job description here...",
         label_visibility="collapsed",
     )
 
     st.markdown("### Candidates")
     cand_cols = st.columns(3, gap="large")
-    candidates: list[dict[str, str]] = []
+    candidates = []
     for idx, col in enumerate(cand_cols, start=1):
         with col:
             st.markdown(f"**Candidate {idx}**")
@@ -508,9 +436,7 @@ def run_shortlist_mode() -> None:
             candidates.append({"name": (name or "").strip(), "cv": cv_text})
 
     st.markdown("")
-    generate = st.button(
-        "Generate Shortlist", type="primary", use_container_width=True
-    )
+    generate = st.button("Generate Shortlist", type="primary", use_container_width=True)
     if not generate:
         return
 
@@ -520,17 +446,15 @@ def run_shortlist_mode() -> None:
 
     valid_candidates = [c for c in candidates if c["name"] and c["cv"].strip()]
     if not valid_candidates:
-        st.error(
-            "Please provide at least one candidate with both a name and a CV."
-        )
+        st.error("Please provide at least one candidate with both a name and a CV.")
         return
 
-    progress = st.progress(0.0, text="Starting analysis…")
+    progress = st.progress(0.0, text="Starting analysis...")
     status = st.empty()
-    results: list[dict] = []
+    results = []
     total = len(valid_candidates)
     for i, cand in enumerate(valid_candidates, start=1):
-        status.info(f"Analysing {cand['name']} ({i}/{total})…")
+        status.info(f"Analysing {cand['name']} ({i}/{total})...")
         result = analyser.analyse_candidate(
             jd_text=jd_text,
             cv_text=cand["cv"],
@@ -542,16 +466,14 @@ def run_shortlist_mode() -> None:
 
     ranked = scorer.rank_candidates(results)
 
-    # --- Section 1: ranking summary table -------------------------------
+    # ranking summary table
     st.markdown("## Ranking Summary")
     df = _shortlist_dataframe(ranked)
     try:
-        styled = df.style.background_gradient(
-            cmap="Greens", subset=["Role Fit %"], vmin=0, vmax=100
-        )
+        styled = df.style.background_gradient(cmap="Greens", subset=["Role Fit %"], vmin=0, vmax=100)
         st.dataframe(styled, use_container_width=True, hide_index=True)
     except Exception:
-        # Styling can fail on minimal pandas builds; fall back to plain.
+        # fallback if styler can't render on this pandas build
         st.dataframe(df, use_container_width=True, hide_index=True)
 
     csv_buffer = io.StringIO()
@@ -563,14 +485,14 @@ def run_shortlist_mode() -> None:
         mime="text/csv",
     )
 
-    # --- Section 2: insight panel ---------------------------------------
+    # insight panel
     st.markdown("## Insight Panel")
     summary = scorer.compute_summary(ranked)
     panel = st.container(border=True)
     with panel:
         if summary["best_candidate"]:
             st.markdown(
-                f"**Best candidate:** {escape(summary['best_candidate'])} — "
+                f"**Best candidate:** {escape(summary['best_candidate'])} - "
                 f"{escape(summary['best_reason'])}"
             )
         else:
@@ -583,28 +505,23 @@ def run_shortlist_mode() -> None:
                 f"{escape(summary['first_interview_question'])}"
             )
 
-    # --- Section 3: per-candidate detail --------------------------------
+    # per-candidate detail
     st.markdown("## Per-Candidate Detail")
     for item in ranked:
         if "error" in item:
             label = item.get("candidate_label", "Unknown")
-            with st.expander(f"{label} — analysis failed", expanded=False):
+            with st.expander(f"{label} - analysis failed", expanded=False):
                 render_error_block(item, label)
             continue
         label = (
             f"#{item.get('rank', '?')} · {item.get('candidate_label', '')} "
-            f"— {item.get('overall_match', 0)}% match"
+            f"- {item.get('overall_match', 0)}% match"
         )
         with st.expander(label, expanded=False):
             render_analysis(item, key_prefix=f"shortlist_{item.get('rank', 0)}")
 
 
-# ---------------------------------------------------------------------------
-# Top-level layout
-# ---------------------------------------------------------------------------
-
-def main() -> None:
-    """Application entry point."""
+def main():
     st.markdown(
         "<div class='esa-title'>Executive Search Agent</div>"
         "<div class='esa-subtitle'>AI-powered candidate screening for "

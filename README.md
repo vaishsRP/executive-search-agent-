@@ -1,56 +1,47 @@
-# Executive Search Agent
+# executive-search-agent
 
-Executive search consultants spend the bulk of any new mandate doing the same handful of things by hand: reading dozens of CVs, holding each one up against a client's job description, deciding which signals matter for *this* level of seniority, scoring fit across qualitative dimensions, and writing internal notes for ATS and email. The work is judgement-heavy but it is also pattern-heavy, and the first pass — the one that turns a longlist into a shortlist — is where most of the unbillable hours go. This tool automates that first pass: paste a JD and one or more CVs, and the agent returns a structured assessment, a ranked shortlist, and a list of interview questions tailored to the gaps it found, all in a format a consultant can drop straight into client correspondence.
+streamlit app that screens candidates against a job description using the groq api. paste a jd and a cv (or upload pdf) and it gives back scores, strengths, gaps, and interview questions to ask. shortlist mode does the same for up to 3 candidates and ranks them.
 
-## The four scoring dimensions
+i built this because a lot of the first-pass screening work executive search firms do is repetitive (read cv, hold it up against the jd, write notes, repeat) and i wanted to see how far an llm could take that part.
 
-For senior search the question is rarely "can this person do the job" — by the time a CV reaches a shortlist the technical floor is usually met. The interesting question is *what kind of fit* the candidate is. So instead of a single "score", the agent grades each candidate on four dimensions chosen to mirror how a consultant actually reasons:
+## scoring dimensions
 
-1. **Technical Benchmarks** — depth of the hard skills the JD explicitly names: tools, certifications, sector experience, the specific functional craft of the role.
-2. **Leadership Context** — the *environments* in which the candidate has led: scope (team size, P&L, geography), stage (startup, scale-up, turnaround, post-merger), and the realism of the leadership claims for the seniority level on offer.
-3. **Soft Signals & Culture** — what the CV implies but does not state: writing style, signs of operator vs. strategist, longevity patterns, the way achievements are framed, and any cultural mismatch with the hiring organisation.
-4. **Growth Potential** — trajectory rather than current state. Has the candidate consistently stretched? Are they likely to grow into the role over 18-24 months, or have they plateaued?
+four scores out of 10 plus an overall match %:
 
-A senior hire is usually a trade-off between these dimensions. Surfacing them separately keeps the conversation with the client honest: "strong technical, weaker leadership context" is a far more useful sentence than "78% match".
+1. technical benchmarks - the hard skills the jd actually asks for
+2. leadership context - team size, scope, what kind of leadership the cv shows
+3. soft signals & culture - tone, framing, longevity, the stuff between the lines
+4. growth potential - trajectory, not just current state
 
-## Missing Information — why consultative gap-finding matters more than scoring
+i split it this way because a single number hides what kind of fit it is. "strong technical, weak leadership context" tells you something. "78% match" doesn't.
 
-A score on its own only tells the client what the model decided. What makes a consultant valuable is the *next question they ask*. Every CV has gaps the AI cannot resolve from text alone — an ambiguous title, an unexplained 14-month break, a vague claim of "transformed the function". The agent flags each of these as a `gap` and pairs it with a specific `question` to ask in interview. The output is therefore not just an assessment, it is the start of an interview brief: it tells the consultant exactly what to probe, and gives them a defensible reason for probing it. Scoring is the conclusion. The questions are the work.
+## missing information
 
-## Install and run
+every cv has gaps the model can't resolve from text alone. so the app also flags each gap and pairs it with the interview question you'd ask to clear it up. that part was actually the point of the project for me, the scoring is just context.
 
-You need Python 3.10+ and a free Groq API key.
+## setup
 
-1. Get a Groq API key at [console.groq.com](https://console.groq.com) — sign up, create a key, copy it.
-2. Clone the repo and install dependencies:
+needs python 3.10+ and a free groq api key from console.groq.com (sign up, generate key, copy it).
 
-   ```bash
-   pip install -r requirements.txt
-   ```
+```
+pip install -r requirements.txt
+cp .env.example .env
+```
 
-3. Set the API key. Either copy `.env.example` to `.env` and replace the placeholder, or export it in your shell:
+then open `.env` and paste your key in. then:
 
-   ```bash
-   cp .env.example .env
-   # then edit .env and paste your real key
-   ```
+```
+streamlit run app.py
+```
 
-4. Run the app:
+opens at http://localhost:8501.
 
-   ```bash
-   streamlit run app.py
-   ```
+## limitations
 
-   Streamlit will open the UI in your browser at `http://localhost:8501`.
+honest about what this doesn't do:
 
-Optional: override the model with `GROQ_MODEL=<model-id>` in `.env` (defaults to `llama-3.3-70b-versatile`).
+1. it can't verify anything the cv claims. inflated titles, fake scope, hidden gaps, the model just trusts the text. reference checks still matter.
+2. it's biased toward well-written cvs. someone who writes a modest cv will get undersold, someone with a polished one gets flattered.
+3. it has no context on the client, the market, or who the firm has rejected before. that's still on the consultant.
 
-## Limitations
-
-LLM-based screening is a sharper longlist filter, not a replacement for a consultant. Three honest things this tool cannot do:
-
-1. **It cannot verify what the CV claims.** If a candidate inflates scope, invents a title, or omits a difficult exit, the model takes the CV at face value. Reference checks and structured interviews remain non-negotiable.
-2. **It is biased toward written self-presentation.** Strong operators who write modest CVs will be undersold by the model; weaker candidates who write polished CVs will be flattered. Culture and leadership signal in person are not detectable here.
-3. **It has no memory of the client or the market.** The agent does not know which firms compete with the hiring company, what the going compensation is, or what the client has rejected on previous searches. The consultant still owns the market context entirely.
-
-Treat the output as a well-prepared first read — the kind a junior researcher would produce — and bring senior judgement to everything that matters.
+treat it like a junior researcher's first read, not a decision.
