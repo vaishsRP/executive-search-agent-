@@ -1,6 +1,7 @@
 # executive-search-agent
 
 live demo: https://vaish-executive-agent.streamlit.app/
+ps: this demo website uses a free-tier grok api call so it may not work sometimes
 
 Streamlit app that screens candidates against a job description using the groq api. paste a jd and a cv (or upload pdf) and it gives back scores, strengths, gaps, and interview questions to ask. shortlist mode does the same for up to 3 candidates and ranks them.
 
