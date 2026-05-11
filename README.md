@@ -1,5 +1,7 @@
 # executive-search-agent
 
+live demo: https://vaish-executive-agent.streamlit.app/
+
 Streamlit app that screens candidates against a job description using the groq api. paste a jd and a cv (or upload pdf) and it gives back scores, strengths, gaps, and interview questions to ask. shortlist mode does the same for up to 3 candidates and ranks them.
 
 ## scoring dimensions
@@ -39,4 +41,3 @@ opens at http://localhost:8501.
 1. It can't verify anything the cv claims. inflated titles, fake scope, hidden gaps etc. 
 2. It's biased toward well-written cvs. someone who writes a modest cv will get undersold, someone with a polished one gets flattered.
 3. It has no context on the client, the market, or who the firm has rejected before (future scope?)
-

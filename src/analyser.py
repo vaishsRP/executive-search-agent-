@@ -2,6 +2,7 @@ import json
 import os
 import re
 
+import json_repair
 from dotenv import load_dotenv
 from groq import Groq
 
@@ -95,6 +96,56 @@ def _extract_json_object(raw):
     return raw
 
 
+def _repair_brackets(s):
+    # fix mismatched ]/} closers by reconciling against a stack of openers.
+    # llama sometimes closes a dict with ] or a list with }, which is enough
+    # to make json.loads (and groq's server-side validator) reject the whole
+    # response. this swaps the wrong closer for the expected one.
+    out = []
+    stack = []
+    in_string = False
+    escape = False
+    for ch in s:
+        if in_string:
+            out.append(ch)
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+            continue
+        if ch == '"':
+            in_string = True
+            out.append(ch)
+        elif ch == "{":
+            stack.append("}")
+            out.append(ch)
+        elif ch == "[":
+            stack.append("]")
+            out.append(ch)
+        elif ch in ("}", "]"):
+            if stack:
+                expected = stack.pop()
+                out.append(expected)
+            else:
+                out.append(ch)
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def _extract_failed_generation(exc):
+    # groq returns 400 with the raw model text under error.failed_generation
+    # when response_format=json_object validation fails server-side.
+    body = getattr(exc, "body", None)
+    if isinstance(body, dict):
+        err = body.get("error") or {}
+        if err.get("code") == "json_validate_failed":
+            return err.get("failed_generation")
+    return None
+
+
 def analyse_candidate(jd_text, cv_text, candidate_label):
     """send jd + cv to groq, return a dict with scores and gaps."""
     api_key = os.getenv("GROQ_API_KEY")
@@ -126,32 +177,43 @@ def analyse_candidate(jd_text, cv_text, candidate_label):
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0.2,
-            max_tokens=2048,
+            max_tokens=4096,
             response_format={"type": "json_object"},
         )
         raw_response = completion.choices[0].message.content or ""
     except Exception as exc:
-        return {
-            "error": f"groq api call failed: {exc}",
-            "raw": raw_response,
-            "candidate_label": candidate_label,
-        }
+        # if groq rejected the response for failing its own json validator,
+        # the model text is still inside the error body. try to salvage it.
+        salvaged = _extract_failed_generation(exc)
+        if salvaged:
+            raw_response = salvaged
+        else:
+            return {
+                "error": f"groq api call failed: {exc}",
+                "raw": raw_response,
+                "candidate_label": candidate_label,
+            }
 
     cleaned = _strip_code_fences(raw_response)
     cleaned = _extract_json_object(cleaned)
 
-    try:
-        parsed = json.loads(cleaned)
-    except json.JSONDecodeError as exc:
-        return {
-            "error": f"couldn't parse model response as json: {exc}",
-            "raw": raw_response,
-            "candidate_label": candidate_label,
-        }
-
+    parsed = None
+    # try plain parse, then our bracket-swap repair, then json_repair (handles
+    # truncation, missing commas, unescaped quotes, the usual llm json sins).
+    for attempt in (cleaned, _repair_brackets(cleaned)):
+        try:
+            parsed = json.loads(attempt)
+            break
+        except json.JSONDecodeError:
+            continue
+    if parsed is None:
+        try:
+            parsed = json_repair.loads(cleaned)
+        except Exception:
+            parsed = None
     if not isinstance(parsed, dict):
         return {
-            "error": "model response wasn't a json object.",
+            "error": "couldn't parse model response as json after repair.",
             "raw": raw_response,
             "candidate_label": candidate_label,
         }
