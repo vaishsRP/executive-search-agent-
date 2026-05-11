@@ -1,23 +1,21 @@
 # executive-search-agent
 
-streamlit app that screens candidates against a job description using the groq api. paste a jd and a cv (or upload pdf) and it gives back scores, strengths, gaps, and interview questions to ask. shortlist mode does the same for up to 3 candidates and ranks them.
-
-i built this because a lot of the first-pass screening work executive search firms do is repetitive (read cv, hold it up against the jd, write notes, repeat) and i wanted to see how far an llm could take that part.
+Streamlit app that screens candidates against a job description using the groq api. paste a jd and a cv (or upload pdf) and it gives back scores, strengths, gaps, and interview questions to ask. shortlist mode does the same for up to 3 candidates and ranks them.
 
 ## scoring dimensions
 
 four scores out of 10 plus an overall match %:
 
-1. technical benchmarks - the hard skills the jd actually asks for
-2. leadership context - team size, scope, what kind of leadership the cv shows
-3. soft signals & culture - tone, framing, longevity, the stuff between the lines
-4. growth potential - trajectory, not just current state
+1. Technical benchmarks - the hard skills the jd actually asks for
+2. Leadership context - team size, scope, what kind of leadership the cv shows
+3. Soft signals & culture - tone, framing, longevity, the stuff between the lines
+4. Growth potential - trajectory, not just current state
 
-i split it this way because a single number hides what kind of fit it is. "strong technical, weak leadership context" tells you something. "78% match" doesn't.
+I split it this way because a single number hides what kind of fit it is. "strong technical, weak leadership context" tells you something.
 
 ## missing information
 
-every cv has gaps the model can't resolve from text alone. so the app also flags each gap and pairs it with the interview question you'd ask to clear it up. that part was actually the point of the project for me, the scoring is just context.
+Every cv has gaps the model can't resolve from text alone. so the app also flags each gap and pairs it with the interview question you'd ask to clear it up. that part was actually the point of the project for me, the scoring is just context.
 
 ## setup
 
@@ -38,10 +36,7 @@ opens at http://localhost:8501.
 
 ## limitations
 
-honest about what this doesn't do:
+1. It can't verify anything the cv claims. inflated titles, fake scope, hidden gaps etc. 
+2. It's biased toward well-written cvs. someone who writes a modest cv will get undersold, someone with a polished one gets flattered.
+3. It has no context on the client, the market, or who the firm has rejected before (future scope?)
 
-1. it can't verify anything the cv claims. inflated titles, fake scope, hidden gaps, the model just trusts the text. reference checks still matter.
-2. it's biased toward well-written cvs. someone who writes a modest cv will get undersold, someone with a polished one gets flattered.
-3. it has no context on the client, the market, or who the firm has rejected before. that's still on the consultant.
-
-treat it like a junior researcher's first read, not a decision.
