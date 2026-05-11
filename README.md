@@ -5,7 +5,7 @@ ps: this demo website uses a free-tier grok api call so it may not work sometime
 
 Streamlit app that screens candidates against a job description using the groq api. paste a jd and a cv (or upload pdf) and it gives back scores, strengths, gaps, and interview questions to ask. shortlist mode does the same for up to 3 candidates and ranks them.
 
-## scoring dimensions
+## Scoring dimensions
 
 four scores out of 10 plus an overall match %:
 
@@ -16,11 +16,11 @@ four scores out of 10 plus an overall match %:
 
 I split it this way because a single number hides what kind of fit it is. "strong technical, weak leadership context" tells you something.
 
-## missing information
+## Missing information
 
 Every cv has gaps the model can't resolve from text alone. so the app also flags each gap and pairs it with the interview question you'd ask to clear it up. that part was actually the point of the project for me, the scoring is just context.
 
-## setup
+## Setup
 
 needs python 3.10+ and a free groq api key from console.groq.com (sign up, generate key, copy it).
 
