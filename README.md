@@ -10,11 +10,15 @@ Streamlit app that screens candidates against a job description using the groq a
 four scores out of 10 plus an overall match %:
 
 1. Technical benchmarks - the hard skills the jd actually asks for
-2. Leadership context - team size, scope, what kind of leadership the cv shows
+2. Leadership context - ownership and leadership evidence, calibrated to the role (intern: TA/club office/team-project lead; IC: project ownership and mentoring; senior+: team scope, P&L, org-level impact)
 3. Soft signals & culture - tone, framing, longevity, the stuff between the lines
 4. Growth potential - trajectory, not just current state
 
+the bar for every dimension adapts to what the jd is hiring for. the model pins the seniority level from the jd first (intern through executive) and scores against that bar, so an intern role isn't graded against P&L scope and a c-suite role isn't graded against hackathon wins.
+
 I split it this way because a single number hides what kind of fit it is. "strong technical, weak leadership context" tells you something.
+
+the overall % is the model's holistic call, but clamped to within ±15 of the four-score average and rounded up to the nearest 5, so the headline can't drift far from the breakdown.
 
 ## Missing information
 
