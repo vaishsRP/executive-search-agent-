@@ -1,122 +1,100 @@
-# Executive Search Agent
+# executive-search-agent
 
-LLM-assisted candidate screening with a scorecard that is engineered not to flatter.
+live demo: https://vaish-executive-agent.streamlit.app/
+ps: the demo runs on a free-tier groq api key so it may not work sometimes
 
-**Live demo:** https://vaish-executive-agent.streamlit.app/
-(The demo runs on a free-tier Groq API key, so it may occasionally hit rate limits.)
+Streamlit app that screens candidates against a job description using the
+groq api. paste a jd and a cv (or upload pdf) and it gives back scores,
+strengths, gaps, and interview questions to ask. shortlist mode does the
+same for up to 3 candidates and ranks them.
 
-> **At a glance**
-> **Question:** when an LLM screens a CV against a job description, the two
-> failure modes are inflation (everyone scores 80%) and level confusion
-> (grading an intern against a P&L bar). Can prompt design plus a few
-> hard-coded guardrails keep the output honest enough to be useful?
-> **Approach:** a four-dimension scorecard where the model must first pin
-> the JD's seniority level and score against that bar, an explicit
-> anti-inflation clause, and a post-hoc clamp that stops the headline
-> number from drifting away from the dimension scores.
-> **The actual point:** every screen ends with the *missing information* —
-> what the CV cannot prove, paired with the interview question that would
-> resolve it. The score is context; the questions are the product.
-> **Status:** working demo. A structured bias audit of this tool (matched
-> synthetic CV pairs, score-differential analysis) is the planned next
-> stage — see "Responsible AI" below.
+the two ways these tools usually fail: they flatter everyone (every cv
+scores 80%), and they grade against the wrong bar (an intern judged on
+P&L scope). most of the work in this project went into guardrails
+against those two things.
 
-Paste a job description and a CV (or upload a PDF) and it returns scores,
-strengths, gaps, and the screening questions a recruiter should ask next.
-Shortlist mode does the same for up to three candidates and ranks them.
+## Scoring dimensions
 
-## How the scoring works
+four scores out of 10 plus an overall match %:
 
-Four scores out of 10, plus an overall match percentage:
+1. Technical benchmarks - the hard skills the jd actually asks for
+2. Leadership context - ownership and leadership evidence, calibrated to the role (intern: TA/club office/team-project lead; IC: project ownership and mentoring; senior+: team scope, P&L, org-level impact)
+3. Soft signals & culture - tone, framing, longevity, the stuff between the lines
+4. Growth potential - trajectory, not just current state
 
-1. **Technical benchmarks** — the hard skills the JD actually asks for.
-2. **Leadership context** — ownership evidence, calibrated to the role.
-   For an intern that means TA roles, club office, or leading a team
-   project; for a mid-level IC it means project ownership and mentoring;
-   for senior+ it means team scope, P&L, org-level impact.
-3. **Soft signals and culture** — tone, framing, longevity, the things
-   between the lines.
-4. **Growth potential** — trajectory, not just current state.
+I split it this way because a single number hides what kind of fit it is.
+"strong technical, weak leadership context" tells you something.
 
-I split it this way because a single number hides what *kind* of fit a
-candidate is. "Strong technical, weak leadership context" tells you
-something a 72% does not.
+## The guardrails
 
-Three guardrails do most of the work of keeping the output honest:
+- the model has to pin the jd's seniority level (intern through
+  executive) before scoring anything, and every bar is set at that
+  level. an intern role isn't graded against P&L and a c-suite role
+  isn't impressed by hackathon wins.
+- the rubric says 5/10 is "average fit", 8+ needs explicit evidence at
+  the right level, and partial matches belong in the 40-60% range.
+  generic claims ("passionate learner", "strategic thinker") clear
+  nothing. llms default to generosity, so this has to be spelled out.
+- the overall % is clamped in code to within ±15 of the four-score
+  average, so the headline can't drift away from the breakdown the
+  model just justified. prompts alone don't hold; the clamp does.
 
-- **Seniority calibration first.** The system prompt forces the model to
-  decide what level the JD is hiring for *before* scoring anything, and
-  to set every bar at that level. An intern role is not graded against
-  executive scope, and a C-suite search is not impressed by hackathon
-  wins.
-- **An anti-inflation clause.** LLMs default to generosity. The rubric
-  states that 5/10 is "average fit," that 8+ requires explicit,
-  level-appropriate evidence, and that partial matches belong in the
-  40–60% range. Generic claims ("passionate learner," "strategic
-  thinker") are told to clear nothing.
-- **A sanity clamp in code, not in the prompt.** The model's holistic
-  overall percentage is clamped to within ±15 points of the four-score
-  average. Whatever the model wants the headline to say, it cannot drift
-  far from the breakdown it just justified.
+## Missing information
 
-## Missing information is the real output
-
-Every CV has gaps the model cannot resolve from text alone. So each
-screen flags what is unverifiable — inflated-looking titles, unexplained
-gaps, claimed skills with no evidence — and pairs every gap with the
-specific interview question that would clear it up. That part was the
-point of the project for me; the scoring exists to give the questions
-context.
+Every cv has gaps the model can't resolve from text alone. so the app
+flags each gap and pairs it with the interview question you'd ask to
+clear it up. that part was actually the point of the project for me,
+the scoring is just context.
 
 ## Under the hood
 
-- Groq API (`llama-3.3-70b-versatile` by default, overridable via
-  `GROQ_MODEL`), temperature 0.2, JSON-mode responses.
-- A three-stage parse cascade for the model's JSON: plain parse, then a
-  bracket-reconciliation pass (llama sometimes closes a dict with `]`),
-  then `json_repair` for truncation and unescaped quotes. If Groq's own
-  server-side JSON validator rejects the response, the raw text is
-  salvaged from the error body instead of failing the screen.
-- Every result is normalised before rendering so a missing key degrades
-  gracefully instead of crashing the UI.
-
-## Responsible AI
-
-Used for real hiring, a system like this would be a **high-risk AI
-system under the EU AI Act** (Annex III covers employment and worker
-selection). This is a student demo and has never screened a real
-candidate, but the obligations that would apply — bias testing,
-documentation, human oversight — are a useful standard to hold it to,
-and the honest position is that it would not currently meet them:
-
-1. **It cannot verify anything the CV claims.** Inflated titles, fake
-   scope, and hidden gaps pass straight through. The
-   missing-information output mitigates this but does not solve it.
-2. **It is biased toward well-written CVs.** Someone who writes modestly
-   gets undersold; someone polished gets flattered. Writing quality
-   correlates with native language, education, and coaching — which
-   makes this a proxy-discrimination channel, not a cosmetic issue.
-3. **It has no context on the client, the market, or past hiring
-   decisions**, so it cannot detect when its own patterns mirror a
-   biased history.
-
-The next stage of this project is a structured audit: matched synthetic
-CV pairs (identical qualifications; varied names, genders, universities,
-and career-gap patterns), score-differential analysis across those
-pairs, and a written findings report in the same repo. I would rather
-publish the audit of my own tool than pretend the tool doesn't need one.
+- groq api (llama-3.3-70b-versatile by default, override with GROQ_MODEL),
+  temperature 0.2, json mode
+- three-stage parse for the model's json: plain parse, then a bracket
+  fixer (llama sometimes closes a dict with `]`), then json_repair. if
+  groq's own validator rejects the response, the raw text gets salvaged
+  from the error body instead of failing the screen
+- results are normalised before rendering so a missing key doesn't
+  crash the ui
 
 ## Setup
 
-Needs Python 3.10+ and a free Groq API key from console.groq.com.
+needs python 3.10+ and a free groq api key from console.groq.com.
 
-```bash
+```
 pip install -r requirements.txt
 cp .env.example .env
-# open .env and paste your key after GROQ_API_KEY=
+```
+
+then open `.env` and paste your key in. then:
+
+```
 streamlit run app.py
 ```
 
-Running locally, the app opens at http://localhost:8501 and uses the key
-in your local `.env`. The live demo above is the hosted version on
-Streamlit Cloud.
+when you run it locally, it opens at http://localhost:8501 and uses the
+key in your local `.env`. the live demo link above is the hosted version
+on streamlit cloud.
+
+## limitations, and the responsible AI part
+
+used for real hiring, a tool in this category is high-risk under the EU
+AI Act (Annex III covers employment). this is a student demo and has
+never screened a real candidate, but the standard is worth stating
+because right now it would not meet it:
+
+1. It can't verify anything the cv claims. inflated titles, fake scope,
+   hidden gaps etc. the missing-information output helps but doesn't
+   solve it.
+2. It's biased toward well-written cvs. someone who writes a modest cv
+   gets undersold, someone with a polished one gets flattered. writing
+   quality tracks native language, education, and coaching, so this is
+   a proxy-discrimination channel, not a cosmetic issue.
+3. It has no context on the client, the market, or who the firm has
+   rejected before, so it can't tell when its patterns mirror a biased
+   history.
+
+next stage: a proper bias audit of this tool. matched synthetic cv
+pairs (same qualifications, different names/genders/universities/career
+gaps), measure the score differences, publish the findings here. I'd
+rather audit my own tool than pretend it doesn't need one.
